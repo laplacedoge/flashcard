@@ -1,0 +1,4 @@
+.cspell/
+.vscode/
+.pyvenv/
+database/
