@@ -9,9 +9,9 @@ class DbConn(object):
                     AUTOINCREMENT,
 
             wordText TEXT
-                CONSTRAINT uqwordText
+                CONSTRAINT uqWordText
                     UNIQUE
-                CONSTRAINT nnwordText
+                CONSTRAINT nnWordText
                     NOT NULL
         );
         """
@@ -222,7 +222,7 @@ class DbConn(object):
         self.closeDatabase()
 
 if __name__ == "__main__":
-    dbPath = "/home/alex/code/playground/flashcard/database/record.db"
+    dbPath = "/home/alex/code/project/flashcard/database/record.db"
 
     conn = DbConn(dbPath)
 

@@ -2,3 +2,4 @@
 .vscode/
 .pyvenv/
 database/
+__pycache__
