@@ -1,14 +1,17 @@
-from .route import basicBlueprint
-import flask
-import os
-
-PACKAGE_DIR = os.path.dirname(os.path.abspath(__file__))
-
-TEMPLATE_DIR = os.path.join(PACKAGE_DIR, "template")
-
 def createApp(dbPath: str):
-    app = flask.Flask(__name__)
+    from . import route
+    import flask
+    import os
 
-    app.register_blueprint(basicBlueprint)
+    packageDir = os.path.dirname(os.path.abspath(__file__))
+    staticDir = os.path.join(packageDir, "static")
+    templateDir = os.path.join(packageDir, "template")
+
+    app = flask.Flask(__name__, static_folder=staticDir,
+                                template_folder=templateDir)
+
+    app.config["DATABASE_PATH"] = dbPath
+
+    app.register_blueprint(route.blueprint)
 
     return app

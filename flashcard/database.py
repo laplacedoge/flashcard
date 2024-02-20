@@ -127,7 +127,7 @@ SQL_QUERY_SENTENCE_ID = """
     SELECT sentenceId FROM sentenceTable WHERE sentenceText = ?;
     """
 
-SQL_SEARCH_WORD_ID = """
+SQL_SEARCH_WORD = """
     SELECT wordId, wordText
         FROM wordTable
         WHERE wordText = ?
@@ -135,7 +135,7 @@ SQL_SEARCH_WORD_ID = """
         LIMIT ?;
     """
 
-SQL_FUZZY_SEARCH_WORD_ID = """
+SQL_FUZZY_SEARCH_WORD = """
     SELECT wordId, wordText
         FROM wordTable
         WHERE wordText LIKE ?
@@ -143,14 +143,46 @@ SQL_FUZZY_SEARCH_WORD_ID = """
         LIMIT ?;
     """
 
+SQL_FETCH_WORD_BY_WORD_ID = """
+    SELECT wordId, wordText,
+           creationTime, modificationTime, accessTime
+        FROM wordTable
+        WHERE wordId == ?;
+    """
+
+SQL_FETCH_WORD_BY_WORD_TEXT = """
+    SELECT wordId, wordText,
+           creationTime, modificationTime, accessTime
+        FROM wordTable
+        WHERE wordText == ?;
+    """
+
+SQL_FETCH_WORDS = """
+    SELECT wordId, wordText
+        FROM wordTable
+        ORDER BY ?
+        LIMIT ?;
+    """
+
+SQL_DELETE_WORD_BY_WORD_ID = """
+    DELETE FROM wordTable
+        WHERE wordId == ?;
+    """
+
+SQL_COMMIT = """COMMIT;"""
+
 PAT_SEARCH_WORD = re.compile(r"^[a-zA-Z0-9- ]+$")
 
 class Connection(object):
 
     def __init__(self, dbPath: str) -> None:
         self._dbPath = dbPath
+        self._dbDir = os.path.dirname(dbPath)
 
     def openDatabase(self):
+        if not os.path.isdir(self._dbDir):
+            os.makedirs(self._dbDir)
+
         if not os.path.isfile(self._dbPath):
             self._dbConn = sqlite3.connect(self._dbPath)
             self._dbCurs = self._dbConn.cursor()
@@ -176,13 +208,58 @@ class Connection(object):
         sortStmtSnip = "accessTime ASC" if sortByTime else "wordText DESC"
 
         if not fuzzy:
-            self._dbCurs.execute(SQL_SEARCH_WORD_ID,
+            self._dbCurs.execute(SQL_SEARCH_WORD,
                                  (keyword, sortStmtSnip, max))
             words = self._dbCurs.fetchall()
         else:
-            self._dbCurs.execute(SQL_FUZZY_SEARCH_WORD_ID,
+            self._dbCurs.execute(SQL_FUZZY_SEARCH_WORD,
                                  (keyword + "%", sortStmtSnip, max))
             words = self._dbCurs.fetchall()
+
+        self.closeDatabase()
+
+        words = [dict(zip(["wordId", "wordText"], word)) for word in words]
+
+        return words
+
+    def fetchWordById(self, wordId: int) -> dict:
+        response = {
+            "wordId": wordId,
+            "wordText": None,
+            "creationTime": None,
+            "modificationTime": None,
+            "accessTime": None,
+        }
+
+        self.openDatabase()
+
+        self._dbCurs.execute(SQL_FETCH_WORD_BY_WORD_ID, (wordId,))
+        result = self._dbCurs.fetchone()
+        if result is not None:
+            response["wordText"] = result[1]
+            response["creationTime"] = result[2]
+            response["modificationTime"] = result[3]
+            response["accessTime"] = result[4]
+
+        self.closeDatabase()
+
+        return response
+
+    def deleteWordById(self, wordId: int):
+        self.openDatabase()
+
+        self._dbCurs.execute(SQL_DELETE_WORD_BY_WORD_ID, (wordId,))
+        self._dbCurs.execute(SQL_COMMIT)
+
+        self.closeDatabase()
+
+    def fetchWords(self, max: int=10, sortByTime: bool=False) -> list:
+        self.openDatabase()
+
+        sortStmtSnip = "accessTime ASC" if sortByTime else "wordText DESC"
+
+        self._dbCurs.execute(SQL_FETCH_WORDS, (sortStmtSnip, max))
+        words = self._dbCurs.fetchall()
 
         self.closeDatabase()
 
@@ -193,7 +270,54 @@ class Connection(object):
     def fetchWordDetail(self, word: int | str) -> list:
         pass
 
-    def insertWord(self, words: list):
+    def insertWord(self, word: dict):
+        timestamp = int(datetime.datetime.utcnow().timestamp())
+
+        wordText = word["wordText"]
+
+        if not "creationTime" in word:
+            creationTime = timestamp
+        else:
+            creationTime = word["creationTime"]
+
+        if not "modificationTime" in word:
+            modificationTime = timestamp
+        else:
+            modificationTime = word["modificationTime"]
+
+        if not "accessTime" in word:
+            accessTime = timestamp
+        else:
+            accessTime = word["accessTime"]
+
+        self.openDatabase()
+
+        try:
+            self._dbCurs.execute("BEGIN DEFERRED TRANSACTION;")
+
+            self._dbCurs.execute(SQL_INSERT_WORD,
+                (wordText, creationTime, modificationTime, accessTime))
+
+            self._dbCurs.execute("END TRANSACTION;")
+
+            wordId = self._dbCurs.lastrowid
+
+        except sqlite3.IntegrityError as e:
+            wordId = None
+
+        self.closeDatabase()
+
+        response = {
+            "wordId": wordId,
+            "wordText": wordText,
+            "creationTime": creationTime,
+            "modificationTime": modificationTime,
+            "accessTime": accessTime,
+        }
+
+        return response
+
+    def insertWordDetail(self, words: list):
         timestamp = int(datetime.datetime.utcnow().timestamp())
 
         self.openDatabase()

@@ -1,6 +1,6 @@
 # from flashcard.database import Connection
 
-# dbPath = "/home/alex/code/project/flashcard/database/word.db"
+# dbPath = "/home/alex/code/playground/flashcard/database/word.db"
 
 # conn = Connection(dbPath)
 
@@ -68,8 +68,8 @@
 
 import flashcard
 
-dbPath = "/home/alex/code/project/flashcard/database/word.db"
+dbPath = "/home/alex/code/playground/flashcard/database/word.db"
 
-app =  flashcard.createApp(dbPath)
+app = flashcard.createApp(dbPath)
 
-app.run(debug=True)
+# app.run(debug=True)
